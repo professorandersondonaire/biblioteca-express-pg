@@ -100,6 +100,16 @@ app.delete('/categorias/:id', async (req, res) => {
 });
 
 
+/*
+
+fazer aqui o crud dessas tabelas (select, insert, update, delete)
+aluno
+autor
+emprestimo
+livro
+
+*/
+
 
 
 app.listen(port, () => {
