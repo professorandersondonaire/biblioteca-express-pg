@@ -1,61 +1,107 @@
-// Importa o módulo 'express', que é um framework para construir APIs web em Node.js
 const express = require('express');
-
-// Importa o módulo 'pg', que permite conectar e interagir com bancos de dados PostgreSQL
 const { Pool } = require('pg');
-
-// Carrega variáveis de ambiente do arquivo .env (por exemplo, DATABASE_URL)
 require('dotenv').config();
 
-// Inicializa o aplicativo Express
 const app = express();
-
-// Define a porta em que o servidor vai rodar (usa a variável de ambiente PORT ou 3000 como padrão)
 const port = process.env.PORT || 3000;
 
-// Middleware para permitir que o servidor entenda requisições com corpo em JSON
 app.use(express.json());
 
-/**
- * Cria uma conexão com o banco de dados PostgreSQL.
- * Usa a URL definida em DATABASE_URL no .env.
- * O parâmetro ssl com 'rejectUnauthorized: false' é necessário quando se usa hospedagens como o Render,
- * que exigem conexões seguras (SSL), mas sem validar o certificado (para evitar erro de autorização).
- */
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {
-    rejectUnauthorized: false // necessário para o Render
+    rejectUnauthorized: false
   }
 });
 
-/**
- * Rota GET na raiz ('/').
- * Apenas retorna uma mensagem de boas-vindas.
- */
 app.get('/', (req, res) => {
   res.send('API de Biblioteca com PostgreSQL e Express!');
 });
 
-/**
- * Rota GET para listar todas as categorias.
- * Faz uma consulta SQL no banco de dados e retorna os resultados em formato JSON.
- * Se ocorrer erro, envia uma resposta com status 500 e mensagem de erro.
- */
+// Listar todas as categorias
 app.get('/categorias', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM categoria'); // Consulta todas as linhas da tabela 'categoria'
-    res.json(result.rows); // Envia os dados como resposta JSON
+    const result = await pool.query('SELECT * FROM categoria');
+    res.json(result.rows);
   } catch (err) {
-    console.error(err); // Loga o erro no console
-    res.status(500).send('Erro ao buscar categorias'); // Envia mensagem de erro
+    console.error(err);
+    res.status(500).send('Erro ao buscar categorias');
   }
 });
 
-/**
- * Inicia o servidor e o faz escutar na porta definida.
- * Mostra no console a URL para acessar a API localmente.
- */
+// Buscar categoria por ID
+app.get('/categorias/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const result = await pool.query('SELECT * FROM categoria WHERE id = $1', [id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).send('Categoria não encontrada');
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Erro ao buscar categoria por ID');
+  }
+});
+
+// Criar uma nova categoria
+app.post('/categorias', async (req, res) => {
+  const { nome } = req.body;
+  try {
+    const result = await pool.query(
+      'INSERT INTO categoria (nome) VALUES ($1) RETURNING *',
+      [nome]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Erro ao criar categoria');
+  }
+});
+
+// Atualizar uma categoria pelo id
+app.put('/categorias/:id', async (req, res) => {
+  const id = req.params.id;
+  const { nome } = req.body;
+  try {
+    const result = await pool.query(
+      'UPDATE categoria SET nome = $1 WHERE id = $2 RETURNING *',
+      [nome, id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).send('Categoria não encontrada');
+    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Erro ao atualizar categoria');
+  }
+});
+
+// Deletar uma categoria pelo id
+app.delete('/categorias/:id', async (req, res) => {
+  const id = req.params.id;
+  try {
+    const result = await pool.query(
+      'DELETE FROM categoria WHERE id = $1 RETURNING *',
+      [id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).send('Categoria não encontrada');
+    }
+    res.send('Categoria deletada com sucesso');
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Erro ao deletar categoria');
+  }
+});
+
+
+
+
 app.listen(port, () => {
   console.log(`Servidor rodando em http://localhost:${port}`);
 });
